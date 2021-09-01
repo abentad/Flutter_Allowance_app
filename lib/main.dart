@@ -5,6 +5,7 @@ import 'package:allowance/view/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -19,6 +20,7 @@ void main() async {
   await Hive.initFlutter();
   Hive.registerAdapter(UserAdapter());
   Hive.registerAdapter(TransactionAdapter());
+  await GetStorage.init();
   await Hive.openBox<User>('user');
   runApp(MyApp());
 }

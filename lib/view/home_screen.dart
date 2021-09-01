@@ -6,8 +6,10 @@ import 'package:allowance/view/edit_screen.dart';
 import 'package:allowance/view/setting_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:hive/hive.dart';
+import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -20,15 +22,29 @@ class _HomeScreenState extends State<HomeScreen> {
   int _groupValue = 0;
   int _bottomNavValue = 0;
   bool isExpense = true;
+  bool isIntro = false;
+
+  final _data = GetStorage();
 
   TextEditingController _transactionNameController = TextEditingController();
   TextEditingController _transactionAmountController = TextEditingController();
   TextEditingController _transactionTypeController = TextEditingController();
+  TextEditingController _usernameController = TextEditingController();
+  TextEditingController _currentBalanceController = TextEditingController();
 
   @override
   void dispose() {
     Hive.box('user').close();
+
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    setState(() {
+      Boxes.getTransactions().values.toList().cast<User>().length == 0 ? isIntro = true : isIntro = false;
+    });
+    super.initState();
   }
 
   @override
@@ -48,19 +64,21 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
     return Scaffold(
       body: contents[_bottomNavValue],
-      bottomNavigationBar: buildBottomNavBar(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showModalBottomSheet(
-            isScrollControlled: true,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.only(topLeft: Radius.circular(10.0), topRight: Radius.circular(10.0))),
-            context: context,
-            builder: (context) => buildSheet(size),
-          );
-        },
-        backgroundColor: Colors.black,
-        child: Icon(Icons.add, color: Colors.white),
-      ),
+      bottomNavigationBar: isIntro ? null : buildBottomNavBar(),
+      floatingActionButton: isIntro
+          ? null
+          : FloatingActionButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  isScrollControlled: true,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.only(topLeft: Radius.circular(10.0), topRight: Radius.circular(10.0))),
+                  context: context,
+                  builder: (context) => buildSheet(size),
+                );
+              },
+              backgroundColor: Colors.black,
+              child: Icon(Icons.add, color: Colors.white),
+            ),
     );
   }
 
@@ -106,8 +124,8 @@ class _HomeScreenState extends State<HomeScreen> {
               );
 
               final user = User()
-                ..userName = "Abenezer"
-                ..currentBalance = 2000.0
+                ..userName = _data.read('userName')
+                ..currentBalance = double.parse(_data.read('currentBalance'))
                 ..transactionList = [_transaction];
 
               final box = Boxes.getTransactions();
@@ -181,52 +199,101 @@ class _HomeScreenState extends State<HomeScreen> {
     return homeContent[_groupValue];
   }
 
-  Widget buildAll(Size size) {
+  Widget buildIntro(Size size) {
     return SafeArea(
-      child: SingleChildScrollView(
-        physics: BouncingScrollPhysics(),
-        child: Container(
-          width: double.infinity,
-          height: size.height,
-          child: Column(
-            children: [
-              SizedBox(height: size.height * 0.02),
-              buildSegmentedSlider(),
-              buildCurrentBalance(size),
-              SizedBox(height: size.height * 0.04),
-              Expanded(
-                child: ListView.builder(
-                  physics: BouncingScrollPhysics(),
-                  itemCount: Boxes.getTransactions().values.toList().cast<User>().length,
-                  itemBuilder: (context, index) {
-                    print(Boxes.getTransactions().values.toList().cast<User>().length.toString() + " items found in the db");
-                    final box = Boxes.getTransactions();
-                    final values = box.values.toList().cast<User>();
-                    return buildCard(
-                      size: size,
-                      name: values[index].transactionList[0].name,
-                      amount: values[index].transactionList[0].amount.toString(),
-                      type: values[index].transactionList[0].type,
-                      isExpense: values[index].transactionList[0].isExpense,
-                      createdDate: values[index].transactionList[0].createdDate.toString(),
-                    );
-                  },
-                ),
-              )
-            ],
-          ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: size.height * 0.04),
+            Text("Hi", style: TextStyle(color: Colors.black, fontSize: 24.0, fontWeight: FontWeight.w600)),
+            SizedBox(height: size.height * 0.04),
+            buildFormField(controller: _usernameController, hintText: "Username"),
+            SizedBox(height: size.height * 0.02),
+            buildFormField(controller: _currentBalanceController, hintText: "Current balance"),
+            SizedBox(height: size.height * 0.06),
+            MaterialButton(
+              onPressed: () {
+                _data.write('userName', _usernameController.text.trim());
+                _data.write('currentBalance', _currentBalanceController.text.trim());
+                final newUser = User()
+                  ..userName = _usernameController.text.trim()
+                  ..currentBalance = double.parse(_currentBalanceController.text.trim())
+                  ..transactionList = [];
+
+                final box = Boxes.getTransactions();
+
+                setState(() {
+                  box.add(newUser);
+                  isIntro = false;
+                });
+              },
+              minWidth: double.infinity,
+              height: 50.0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+              color: Colors.black,
+              child: Text("Continue", style: TextStyle(color: Colors.white)),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  Widget buildAll(Size size) {
+    return Boxes.getTransactions().values.toList().cast<User>().length == 0
+        ? buildIntro(size)
+        : SafeArea(
+            child: SingleChildScrollView(
+              physics: BouncingScrollPhysics(),
+              child: Container(
+                width: double.infinity,
+                height: size.height,
+                child: Column(
+                  children: [
+                    SizedBox(height: size.height * 0.02),
+                    buildSegmentedSlider(),
+                    buildCurrentBalance(size),
+                    SizedBox(height: size.height * 0.04),
+                    Expanded(
+                      child: ListView.builder(
+                        physics: BouncingScrollPhysics(),
+                        itemCount: Boxes.getTransactions().values.toList().cast<User>().length - 1,
+                        itemBuilder: (context, index) {
+                          final box = Boxes.getTransactions();
+                          final values = box.values.toList().cast<User>();
+                          print(values.length.toString() + " items found in the db");
+                          if (values.length == 1) {
+                            return Icon(Icons.no_accounts, size: 28.0);
+                          } else {
+                            return buildCard(
+                              size: size,
+                              name: values[index + 1].transactionList[0].name,
+                              amount: values[index + 1].transactionList[0].amount.toString(),
+                              type: values[index + 1].transactionList[0].type,
+                              isExpense: values[index + 1].transactionList[0].isExpense,
+                              createdDate: values[index + 1].transactionList[0].createdDate.toString(),
+                            );
+                          }
+                        },
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            ),
+          );
+  }
+
   Widget buildCard({required Size size, required String name, amount, type, createdDate, required bool isExpense}) {
+    TextStyle _style = TextStyle(color: Colors.white, fontSize: 18.0);
     return Container(
       margin: const EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0),
       height: size.height * 0.15,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: isExpense ? Colors.redAccent : Color(0xfff2f2f2),
+        color: isExpense ? Color(0xff810000) : Color(0xff57837B),
         borderRadius: BorderRadius.circular(10.0),
         boxShadow: [BoxShadow(color: Colors.black54, offset: Offset(2, 9), blurRadius: 10.0)],
       ),
@@ -235,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             flex: 1,
             child: Container(
-              child: Icon(Icons.money, size: 42.0),
+              child: isExpense ? Icon(Icons.money, size: 42.0, color: Colors.white) : Icon(Icons.link, size: 42.0, color: Colors.white),
             ),
           ),
           Expanded(
@@ -245,11 +312,46 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  Text(name),
-                  Text(amount),
-                  Text(isExpense.toString()),
-                  Text(type),
-                  Text(createdDate),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(name, style: _style.copyWith(fontWeight: FontWeight.bold)),
+                        Text(amount, style: _style.copyWith(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Is Expense", style: _style.copyWith(fontSize: 14.0)),
+                        isExpense == true ? Icon(Icons.check_box, size: 18.0) : Icon(Icons.check_box_outline_blank, size: 18.0),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Type", style: _style.copyWith(fontSize: 14.0)),
+                        Text(type, style: _style.copyWith(fontSize: 14.0)),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Date", style: _style.copyWith(fontSize: 14.0)),
+                        Text(DateFormat('yMMMEd').format(DateTime.parse(createdDate)), style: _style.copyWith(fontSize: 14.0)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -299,12 +401,23 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           SizedBox(height: size.height * 0.04),
           Text(
-            'Current balance',
-            style: TextStyle(fontSize: 16.0, color: Colors.grey),
+            'Hi ${_data.read('userName')} ',
+            style: TextStyle(fontSize: 22.0),
           ),
           SizedBox(height: size.height * 0.02),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Current balance',
+                style: TextStyle(fontSize: 16.0, color: Colors.grey),
+              ),
+              Icon(Icons.arrow_drop_down, color: Colors.teal),
+            ],
+          ),
+          // SizedBox(height: size.height * 0.02),
           Text(
-            '2000 ' + "Birr",
+            '${_data.read('currentBalance')} ' + "Birr",
             style: TextStyle(fontSize: 32.0),
           ),
         ],
