@@ -1,14 +1,10 @@
-import 'package:allowance/model/transaction.dart';
-import 'package:allowance/model/user.dart';
-import 'package:allowance/utils/boxes.dart';
+import 'package:allowance/controller/data_controller.dart';
 import 'package:allowance/view/chart_screen.dart';
 import 'package:allowance/view/edit_screen.dart';
 import 'package:allowance/view/setting_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:get_storage/get_storage.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:hive/hive.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,12 +15,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _dataController = Get.find<DataController>();
+
   int _groupValue = 0;
   int _bottomNavValue = 0;
   bool isExpense = true;
-  bool isIntro = false;
-
-  final _data = GetStorage();
 
   TextEditingController _transactionNameController = TextEditingController();
   TextEditingController _transactionAmountController = TextEditingController();
@@ -34,16 +29,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    Hive.box('user').close();
-
     super.dispose();
   }
 
   @override
   void initState() {
-    setState(() {
-      Boxes.getTransactions().values.toList().cast<User>().length == 0 ? isIntro = true : isIntro = false;
-    });
     super.initState();
   }
 
@@ -64,8 +54,10 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
     return Scaffold(
       body: contents[_bottomNavValue],
-      bottomNavigationBar: isIntro ? null : buildBottomNavBar(),
-      floatingActionButton: isIntro
+      // bottomNavigationBar: isIntro ? null : buildBottomNavBar(),
+      // floatingActionButton: isIntro
+      bottomNavigationBar: _dataController.isIntro ? null : buildBottomNavBar(),
+      floatingActionButton: _dataController.isIntro
           ? null
           : FloatingActionButton(
               onPressed: () {
@@ -114,24 +106,12 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(height: size.height * 0.04),
           MaterialButton(
             onPressed: () {
-              //TODO: fix stuff here
-              final _transaction = new Transaction(
-                name: _transactionNameController.text.trim(),
-                amount: double.parse(_transactionAmountController.text),
-                type: _transactionTypeController.text.trim(),
-                createdDate: DateTime.now(),
+              _dataController.createNewTransaction(
+                name: _transactionNameController.text,
+                amount: _transactionAmountController.text,
+                type: _transactionTypeController.text,
                 isExpense: isExpense,
               );
-
-              final user = User()
-                ..userName = _data.read('userName')
-                ..currentBalance = double.parse(_data.read('currentBalance'))
-                ..transactionList = [_transaction];
-
-              final box = Boxes.getTransactions();
-
-              box.add(user);
-
               //reseters
               _transactionNameController.clear();
               _transactionAmountController.clear();
@@ -215,19 +195,10 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(height: size.height * 0.06),
             MaterialButton(
               onPressed: () {
-                _data.write('userName', _usernameController.text.trim());
-                _data.write('currentBalance', _currentBalanceController.text.trim());
-                final newUser = User()
-                  ..userName = _usernameController.text.trim()
-                  ..currentBalance = double.parse(_currentBalanceController.text.trim())
-                  ..transactionList = [];
-
-                final box = Boxes.getTransactions();
-
-                setState(() {
-                  box.add(newUser);
-                  isIntro = false;
-                });
+                _dataController.createNewUser(
+                  userName: _usernameController.text,
+                  currentBalance: _currentBalanceController.text,
+                );
               },
               minWidth: double.infinity,
               height: 50.0,
@@ -242,121 +213,140 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget buildAll(Size size) {
-    return Boxes.getTransactions().values.toList().cast<User>().length == 0
-        ? buildIntro(size)
-        : SafeArea(
-            child: SingleChildScrollView(
-              physics: BouncingScrollPhysics(),
-              child: Container(
-                width: double.infinity,
-                height: size.height,
-                child: Column(
-                  children: [
-                    SizedBox(height: size.height * 0.02),
-                    buildSegmentedSlider(),
-                    buildCurrentBalance(size),
-                    SizedBox(height: size.height * 0.04),
-                    Expanded(
-                      child: ListView.builder(
-                        physics: BouncingScrollPhysics(),
-                        itemCount: Boxes.getTransactions().values.toList().cast<User>().length - 1,
-                        itemBuilder: (context, index) {
-                          final box = Boxes.getTransactions();
-                          final values = box.values.toList().cast<User>();
-                          print(values.length.toString() + " items found in the db");
-                          if (values.length == 1) {
-                            return Icon(Icons.no_accounts, size: 28.0);
-                          } else {
-                            return buildCard(
-                              size: size,
-                              name: values[index + 1].transactionList[0].name,
-                              amount: values[index + 1].transactionList[0].amount.toString(),
-                              type: values[index + 1].transactionList[0].type,
-                              isExpense: values[index + 1].transactionList[0].isExpense,
-                              createdDate: values[index + 1].transactionList[0].createdDate.toString(),
-                            );
-                          }
-                        },
+    return GetBuilder<DataController>(
+      builder: (controller) => controller.transactionListLength == 0
+          ? buildIntro(size)
+          : SafeArea(
+              child: SingleChildScrollView(
+                physics: BouncingScrollPhysics(),
+                child: Container(
+                  width: double.infinity,
+                  height: size.height,
+                  child: Column(
+                    children: [
+                      SizedBox(height: size.height * 0.02),
+                      buildSegmentedSlider(),
+                      buildCurrentBalance(size),
+                      SizedBox(height: size.height * 0.04),
+                      Expanded(
+                        child: ListView.builder(
+                          physics: BouncingScrollPhysics(),
+                          itemCount: controller.transactionListLength - 1,
+                          itemBuilder: (context, index) {
+                            final values = controller.listOfUserFromDb;
+                            print(values.length.toString() + " items found in the db");
+                            if (values.length == 1) {
+                              return Icon(Icons.no_accounts, size: 28.0);
+                            } else {
+                              return buildCard(
+                                size: size,
+                                name: values[index + 1].transactionList[0].name,
+                                amount: values[index + 1].transactionList[0].amount.toString(),
+                                type: values[index + 1].transactionList[0].type,
+                                isExpense: values[index + 1].transactionList[0].isExpense,
+                                createdDate: values[index + 1].transactionList[0].createdDate.toString(),
+                              );
+                            }
+                          },
+                        ),
                       ),
-                    )
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          );
+    );
   }
 
   Widget buildCard({required Size size, required String name, amount, type, createdDate, required bool isExpense}) {
     TextStyle _style = TextStyle(color: Colors.white, fontSize: 18.0);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0),
-      height: size.height * 0.15,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: isExpense ? Color(0xff810000) : Color(0xff57837B),
-        borderRadius: BorderRadius.circular(10.0),
-        boxShadow: [BoxShadow(color: Colors.black54, offset: Offset(2, 9), blurRadius: 10.0)],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 1,
-            child: Container(
-              child: isExpense ? Icon(Icons.money, size: 42.0, color: Colors.white) : Icon(Icons.link, size: 42.0, color: Colors.white),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0),
+      child: InkWell(
+        onLongPress: () {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text("Remove"),
+              content: Text("Remove this Transaction?"),
+              actions: [
+                TextButton(onPressed: () => Navigator.of(context).pop(), child: Text("cancel")),
+                //TODO: implement remove button of transaction
+                TextButton(onPressed: () {}, child: Text("confirm")),
+              ],
             ),
+          );
+        },
+        child: Container(
+          height: size.height * 0.15,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: isExpense ? Color(0xff810000) : Color(0xff57837B),
+            borderRadius: BorderRadius.circular(10.0),
+            boxShadow: [BoxShadow(color: Colors.black54, offset: Offset(2, 9), blurRadius: 10.0)],
           ),
-          Expanded(
-            flex: 2,
-            child: Container(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(name, style: _style.copyWith(fontWeight: FontWeight.bold)),
-                        Text(amount, style: _style.copyWith(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text("Is Expense", style: _style.copyWith(fontSize: 14.0)),
-                        isExpense == true ? Icon(Icons.check_box, size: 18.0) : Icon(Icons.check_box_outline_blank, size: 18.0),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text("Type", style: _style.copyWith(fontSize: 14.0)),
-                        Text(type, style: _style.copyWith(fontSize: 14.0)),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text("Date", style: _style.copyWith(fontSize: 14.0)),
-                        Text(DateFormat('yMMMEd').format(DateTime.parse(createdDate)), style: _style.copyWith(fontSize: 14.0)),
-                      ],
-                    ),
-                  ),
-                ],
+          child: Row(
+            children: [
+              Expanded(
+                flex: 1,
+                child: Container(
+                  child: isExpense ? Icon(Icons.money, size: 42.0, color: Colors.white) : Icon(Icons.link, size: 42.0, color: Colors.white),
+                ),
               ),
-            ),
+              Expanded(
+                flex: 2,
+                child: Container(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(name, style: _style.copyWith(fontWeight: FontWeight.bold)),
+                            Text(amount, style: _style.copyWith(fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Is Expense", style: _style.copyWith(fontSize: 14.0)),
+                            isExpense == true ? Icon(Icons.check_box, size: 18.0) : Icon(Icons.check_box_outline_blank, size: 18.0),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Type", style: _style.copyWith(fontSize: 14.0)),
+                            Text(type, style: _style.copyWith(fontSize: 14.0)),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Date", style: _style.copyWith(fontSize: 14.0)),
+                            Text(DateFormat('yMMMEd').format(DateTime.parse(createdDate)), style: _style.copyWith(fontSize: 14.0)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -400,9 +390,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         children: [
           SizedBox(height: size.height * 0.04),
-          Text(
-            'Hi ${_data.read('userName')} ',
-            style: TextStyle(fontSize: 22.0),
+          GetBuilder<DataController>(
+            builder: (controller) => Text(
+              'Hi ${controller.userName} ',
+              style: TextStyle(fontSize: 22.0),
+            ),
           ),
           SizedBox(height: size.height * 0.02),
           Row(
@@ -416,9 +408,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           // SizedBox(height: size.height * 0.02),
-          Text(
-            '${_data.read('currentBalance')} ' + "Birr",
-            style: TextStyle(fontSize: 32.0),
+          GetBuilder<DataController>(
+            builder: (controller) => Text(
+              '${controller.currentBalance} ' + "Birr",
+              style: TextStyle(fontSize: 32.0),
+            ),
           ),
         ],
       ),

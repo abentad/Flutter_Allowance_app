@@ -1,3 +1,4 @@
+import 'package:allowance/controller/data_controller.dart';
 import 'package:allowance/controller/theme_controller.dart';
 import 'package:allowance/model/transaction.dart';
 import 'package:allowance/model/user.dart';
@@ -13,6 +14,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   Get.put(ThemeController());
+  Get.put(DataController());
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
     statusBarColor: Get.find<ThemeController>().statusBarColor,
     statusBarIconBrightness: Get.find<ThemeController>().statusBarIconBrghtness,
