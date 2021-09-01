@@ -93,15 +93,17 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(height: size.height * 0.02),
           buildFormField(controller: _transactionTypeController, hintText: "Type"),
           SizedBox(height: size.height * 0.04),
-          CheckboxListTile(
-            title: Text("Is Expense"),
-            value: isExpense,
-            activeColor: Colors.black,
-            onChanged: (value) {
-              setState(() {
-                isExpense = value!;
-              });
-            },
+          StatefulBuilder(
+            builder: (context, _setState) => CheckboxListTile(
+              title: Text("Is Expense"),
+              value: isExpense,
+              activeColor: Colors.black,
+              onChanged: (value) {
+                _setState(() {
+                  isExpense = value!;
+                });
+              },
+            ),
           ),
           SizedBox(height: size.height * 0.04),
           MaterialButton(

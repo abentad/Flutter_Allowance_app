@@ -41,6 +41,12 @@ class DataController extends GetxController {
     final box = Boxes.getTransactions();
     box.add(newUser);
     setIsIntro(false);
+    updateTransactionList();
+    update();
+  }
+
+  void updateTransactionList() {
+    _transactionListLength = Boxes.getTransactions().values.toList().cast<User>().length;
     update();
   }
 
@@ -58,6 +64,7 @@ class DataController extends GetxController {
       ..transactionList = [_newTransaction];
     final box = Boxes.getTransactions();
     box.add(user);
+    updateTransactionList();
     update();
   }
 
