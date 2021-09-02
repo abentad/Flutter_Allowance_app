@@ -52,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
       buildChart(),
       buildSetting(),
     ];
+
     return Scaffold(
       body: contents[_bottomNavValue],
       // bottomNavigationBar: isIntro ? null : buildBottomNavBar(),
@@ -214,52 +215,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget buildAll(Size size) {
-    return GetBuilder<DataController>(
-      builder: (controller) => controller.transactionListLength == 0
-          ? buildIntro(size)
-          : SafeArea(
-              child: SingleChildScrollView(
-                physics: BouncingScrollPhysics(),
-                child: Container(
-                  width: double.infinity,
-                  height: size.height,
-                  child: Column(
-                    children: [
-                      SizedBox(height: size.height * 0.02),
-                      buildSegmentedSlider(),
-                      buildCurrentBalance(size),
-                      SizedBox(height: size.height * 0.04),
-                      Expanded(
-                        child: ListView.builder(
-                          physics: BouncingScrollPhysics(),
-                          itemCount: controller.transactionListLength - 1,
-                          itemBuilder: (context, index) {
-                            final values = controller.listOfUserFromDb;
-                            print(values.length.toString() + " items found in the db");
-                            if (values.length == 1) {
-                              return Icon(Icons.no_accounts, size: 28.0);
-                            } else {
-                              return buildCard(
-                                size: size,
-                                name: values[index + 1].transactionList[0].name,
-                                amount: values[index + 1].transactionList[0].amount.toString(),
-                                type: values[index + 1].transactionList[0].type,
-                                isExpense: values[index + 1].transactionList[0].isExpense,
-                                createdDate: values[index + 1].transactionList[0].createdDate.toString(),
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-    );
-  }
-
   Widget buildCard({required Size size, required String name, amount, type, createdDate, required bool isExpense}) {
     TextStyle _style = TextStyle(color: Colors.white, fontSize: 18.0);
     return Padding(
@@ -353,18 +308,77 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget buildAll(Size size) {
+    return GetBuilder<DataController>(
+      builder: (controller) => controller.listOfUserFromDb.length == 0
+          ? buildIntro(size)
+          : SafeArea(
+              child: ListView.builder(
+                physics: BouncingScrollPhysics(),
+                itemCount: controller.listOfUserFromDb.length - 1,
+                itemBuilder: (context, index) {
+                  final values = controller.listOfUserFromDb;
+                  print((values.length - 1).toString() + " items found in the db");
+                  if (index == 0) {
+                    return Column(
+                      children: [
+                        SizedBox(height: size.height * 0.02),
+                        buildSegmentedSlider(),
+                        buildCurrentBalance(size),
+                        SizedBox(height: size.height * 0.04),
+                      ],
+                    );
+                  }
+                  if (values.length == 1) {
+                    return Icon(Icons.no_accounts, size: 28.0);
+                  } else {
+                    return buildCard(
+                      size: size,
+                      name: values[index + 1].transactionList[0].name,
+                      amount: values[index + 1].transactionList[0].amount.toString(),
+                      type: values[index + 1].transactionList[0].type,
+                      isExpense: values[index + 1].transactionList[0].isExpense,
+                      createdDate: values[index + 1].transactionList[0].createdDate.toString(),
+                    );
+                  }
+                },
+              ),
+            ),
+    );
+  }
+
   Widget buildIncome(Size size) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        child: Container(
-          width: double.infinity,
-          child: Column(
-            children: [
-              SizedBox(height: size.height * 0.02),
-              buildSegmentedSlider(),
-              buildCurrentBalance(size),
-            ],
-          ),
+    return GetBuilder<DataController>(
+      builder: (controller) => SafeArea(
+        child: ListView.builder(
+          physics: BouncingScrollPhysics(),
+          itemCount: controller.incomeOnly.length - 1,
+          itemBuilder: (context, index) {
+            final values = controller.incomeOnly;
+            print((values.length - 1).toString() + " Income items found in the db");
+            if (index == 0) {
+              return Column(
+                children: [
+                  SizedBox(height: size.height * 0.02),
+                  buildSegmentedSlider(),
+                  buildCurrentBalance(size),
+                  SizedBox(height: size.height * 0.04),
+                ],
+              );
+            }
+            if (values.length == 1) {
+              return Icon(Icons.no_accounts, size: 28.0);
+            } else {
+              return buildCard(
+                size: size,
+                name: values[index + 1].transactionList[0].name,
+                amount: values[index + 1].transactionList[0].amount.toString(),
+                type: values[index + 1].transactionList[0].type,
+                isExpense: values[index + 1].transactionList[0].isExpense,
+                createdDate: values[index + 1].transactionList[0].createdDate.toString(),
+              );
+            }
+          },
         ),
       ),
     );

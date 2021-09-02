@@ -10,15 +10,15 @@ class DataController extends GetxController {
   late bool _isIntro = Boxes.getTransactions().values.toList().cast<User>().length == 0 ? _isIntro = true : _isIntro = false;
   late String _userName = _data.read('userName');
   late double _currentBalance = double.parse(_data.read('currentBalance'));
-  late int _transactionListLength = Boxes.getTransactions().values.toList().cast<User>().length;
   late List<User> _listOfUserFromDb = Boxes.getTransactions().values.toList().cast<User>();
+  late List<User> _incomeOnly = _listOfUserFromDb.where((element) => element.transactionList[0].isExpense != true).toList();
 
   //getters
   bool get isIntro => _isIntro;
   String get userName => _userName;
   double get currentBalance => _currentBalance;
-  int get transactionListLength => _transactionListLength;
   List<User> get listOfUserFromDb => _listOfUserFromDb;
+  List<User> get incomeOnly => _incomeOnly;
 
   //setters
   void setIsIntro(bool newValue) {
@@ -41,12 +41,6 @@ class DataController extends GetxController {
     final box = Boxes.getTransactions();
     box.add(newUser);
     setIsIntro(false);
-    updateTransactionList();
-    update();
-  }
-
-  void updateTransactionList() {
-    _transactionListLength = Boxes.getTransactions().values.toList().cast<User>().length;
     update();
   }
 
@@ -62,9 +56,10 @@ class DataController extends GetxController {
       ..userName = _userName
       ..currentBalance = _currentBalance
       ..transactionList = [_newTransaction];
+
     final box = Boxes.getTransactions();
     box.add(user);
-    updateTransactionList();
+    _listOfUserFromDb = Boxes.getTransactions().values.toList().cast<User>();
     update();
   }
 
