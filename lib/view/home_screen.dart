@@ -47,31 +47,36 @@ class _HomeScreenState extends State<HomeScreen> {
       buildSetting(),
     ];
 
-    return Scaffold(
-      body: contents[_bottomNavValue],
-      // bottomNavigationBar: isIntro ? null : buildBottomNavBar(),
-      // floatingActionButton: isIntro
-      bottomNavigationBar: _dataController.currentUser.name == "" ? null : buildBottomNavBar(),
-      floatingActionButton: _dataController.currentUser.name == ""
-          ? null
-          : FloatingActionButton(
-              onPressed: () {
-                showModalBottomSheet(
-                  isScrollControlled: true,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.only(topLeft: Radius.circular(10.0), topRight: Radius.circular(10.0))),
-                  context: context,
-                  builder: (context) => buildSheet(size),
-                );
-              },
-              backgroundColor: Colors.black,
-              child: Icon(Icons.add, color: Colors.white),
-            ),
+    return GetBuilder<DataController>(
+      builder: (controller) => Scaffold(
+        body: contents[_bottomNavValue],
+        // bottomNavigationBar: isIntro ? null : buildBottomNavBar(),
+        // floatingActionButton: isIntro
+        //TODO: implement bottom nav bar
+        // bottomNavigationBar: _dataController.currentUser.name == "" ? null : buildBottomNavBar(),
+        floatingActionButton: controller.currentUser.name == ""
+            ? null
+            : FloatingActionButton(
+                onPressed: () {
+                  showModalBottomSheet(
+                    isScrollControlled: true,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.only(topLeft: Radius.circular(10.0), topRight: Radius.circular(10.0))),
+                    context: context,
+                    builder: (context) => SingleChildScrollView(
+                      child: buildSheet(size),
+                    ),
+                  );
+                },
+                backgroundColor: Colors.black,
+                child: Icon(Icons.add, color: Colors.white),
+              ),
+      ),
     );
   }
 
   Widget buildSheet(Size size) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      padding: EdgeInsets.only(left: 20.0, right: 20.0, bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -82,11 +87,11 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(fontSize: 26.0, fontWeight: FontWeight.w500),
           ),
           SizedBox(height: size.height * 0.04),
-          buildFormField(controller: _transactionNameController, hintText: "Name"),
+          buildFormField(controller: _transactionNameController, hintText: "Name", keyboardType: TextInputType.name),
           SizedBox(height: size.height * 0.02),
-          buildFormField(controller: _transactionAmountController, hintText: "Amount"),
+          buildFormField(controller: _transactionAmountController, hintText: "Amount", keyboardType: TextInputType.number),
           SizedBox(height: size.height * 0.02),
-          buildFormField(controller: _transactionTypeController, hintText: "Type"),
+          buildFormField(controller: _transactionTypeController, hintText: "Type", keyboardType: TextInputType.text),
           SizedBox(height: size.height * 0.04),
           StatefulBuilder(
             builder: (context, _setState) => CheckboxListTile(
@@ -134,8 +139,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  TextFormField buildFormField({required TextEditingController controller, required String hintText}) {
+  TextFormField buildFormField({required TextEditingController controller, required String hintText, required TextInputType keyboardType}) {
     return TextFormField(
+      keyboardType: keyboardType,
       controller: controller,
       cursorColor: Colors.black,
       style: TextStyle(fontSize: 22.0),
@@ -189,9 +195,9 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(height: size.height * 0.04),
             Text("Hi", style: TextStyle(color: Colors.black, fontSize: 24.0, fontWeight: FontWeight.w600)),
             SizedBox(height: size.height * 0.04),
-            buildFormField(controller: _usernameController, hintText: "Username"),
+            buildFormField(controller: _usernameController, hintText: "Username", keyboardType: TextInputType.name),
             SizedBox(height: size.height * 0.02),
-            buildFormField(controller: _currentBalanceController, hintText: "Current balance"),
+            buildFormField(controller: _currentBalanceController, hintText: "Current balance", keyboardType: TextInputType.number),
             SizedBox(height: size.height * 0.06),
             MaterialButton(
               onPressed: () {
@@ -214,29 +220,37 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget buildCard({required Size size, required String name, amount, type, createdDate, required bool isIncome, required int index}) {
+  Widget buildCard({required Size size, required String name, amount, type, createdDate, required bool isIncome, required int index, required bool isAll}) {
     TextStyle _style = TextStyle(color: Colors.white, fontSize: 18.0);
     return Padding(
       padding: const EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0),
       child: InkWell(
         onLongPress: () {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text("Remove"),
-              content: Text("Remove this Transaction?"),
-              actions: [
-                TextButton(onPressed: () => Navigator.of(context).pop(), child: Text("cancel")),
-                //TODO: implement remove button of transaction
-                TextButton(
-                    onPressed: () {
-                      _dataController.removeTransaction(_dataController.transactions[index - 1]);
-                      Navigator.of(context).pop();
-                    },
-                    child: Text("confirm")),
-              ],
-            ),
-          );
+          isAll
+              ? showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text("Remove"),
+                    content: Text("Remove this Transaction?"),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.of(context).pop(), child: Text("cancel")),
+                      TextButton(
+                          onPressed: () {
+                            _dataController.removeTransaction(_dataController.transactions[index - 1]);
+                            Navigator.of(context).pop();
+                          },
+                          child: Text("confirm")),
+                    ],
+                  ),
+                )
+              : ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(
+                        "Can't delete in here",
+                        style: TextStyle(color: Colors.black),
+                      ),
+                      backgroundColor: Colors.white),
+                );
         },
         child: Container(
           height: size.height * 0.15,
@@ -338,6 +352,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     return Padding(
                       padding: index == controller.transactions.length ? const EdgeInsets.only(bottom: 60.0) : const EdgeInsets.all(0),
                       child: buildCard(
+                        isAll: true,
                         index: index,
                         size: size,
                         name: controller.transactions[index - 1].name,
@@ -356,37 +371,87 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget buildIncome(Size size) {
     return GetBuilder<DataController>(
-      builder: (controller) => SafeArea(
-        child: SingleChildScrollView(
-          child: Container(
-            width: double.infinity,
-            child: Column(
-              children: [
-                SizedBox(height: size.height * 0.02),
-                buildSegmentedSlider(),
-                buildCurrentBalance(size),
-              ],
+      builder: (controller) => controller.currentUser.name == ""
+          ? buildIntro(size)
+          : SafeArea(
+              child: ListView.builder(
+                physics: BouncingScrollPhysics(),
+                itemCount: controller.incomeTransactions.length + 1,
+                itemBuilder: (context, index) {
+                  print((controller.incomeTransactions.length).toString() + " items found in the db");
+                  if (index == 0) {
+                    return Column(
+                      children: [
+                        SizedBox(height: size.height * 0.02),
+                        buildSegmentedSlider(),
+                        buildCurrentBalance(size),
+                        SizedBox(height: size.height * 0.04),
+                      ],
+                    );
+                  }
+                  if (controller.incomeTransactions.length == 0) {
+                    return Icon(Icons.no_accounts, size: 28.0);
+                  } else {
+                    return Padding(
+                      padding: index == controller.incomeTransactions.length ? const EdgeInsets.only(bottom: 60.0) : const EdgeInsets.all(0),
+                      child: buildCard(
+                        isAll: false,
+                        index: index,
+                        size: size,
+                        name: controller.incomeTransactions[index - 1].name,
+                        amount: controller.incomeTransactions[index - 1].amount.toString(),
+                        type: controller.incomeTransactions[index - 1].type,
+                        isIncome: controller.incomeTransactions[index - 1].isIncome,
+                        createdDate: controller.incomeTransactions[index - 1].dateAdded.toString(),
+                      ),
+                    );
+                  }
+                },
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
   Widget buildExpenses(Size size) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        child: Container(
-          width: double.infinity,
-          child: Column(
-            children: [
-              SizedBox(height: size.height * 0.02),
-              buildSegmentedSlider(),
-              buildCurrentBalance(size),
-            ],
-          ),
-        ),
-      ),
+    return GetBuilder<DataController>(
+      builder: (controller) => controller.currentUser.name == ""
+          ? buildIntro(size)
+          : SafeArea(
+              child: ListView.builder(
+                physics: BouncingScrollPhysics(),
+                itemCount: controller.expenseTransactions.length + 1,
+                itemBuilder: (context, index) {
+                  print((controller.expenseTransactions.length).toString() + " items found in the db");
+                  if (index == 0) {
+                    return Column(
+                      children: [
+                        SizedBox(height: size.height * 0.02),
+                        buildSegmentedSlider(),
+                        buildCurrentBalance(size),
+                        SizedBox(height: size.height * 0.04),
+                      ],
+                    );
+                  }
+                  if (controller.expenseTransactions.length == 0) {
+                    return Icon(Icons.no_accounts, size: 28.0);
+                  } else {
+                    return Padding(
+                      padding: index == controller.expenseTransactions.length ? const EdgeInsets.only(bottom: 60.0) : const EdgeInsets.all(0),
+                      child: buildCard(
+                        isAll: false,
+                        index: index,
+                        size: size,
+                        name: controller.expenseTransactions[index - 1].name,
+                        amount: controller.expenseTransactions[index - 1].amount.toString(),
+                        type: controller.expenseTransactions[index - 1].type,
+                        isIncome: controller.expenseTransactions[index - 1].isIncome,
+                        createdDate: controller.expenseTransactions[index - 1].dateAdded.toString(),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
     );
   }
 
