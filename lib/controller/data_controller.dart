@@ -1,71 +1,57 @@
+import 'package:allowance/constants.dart';
 import 'package:allowance/model/transaction.dart';
 import 'package:allowance/model/user.dart';
-import 'package:allowance/utils/boxes.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class DataController extends GetxController {
-  final _data = GetStorage();
-  late bool _isIntro = Boxes.getTransactions().values.toList().cast<User>().length == 0 ? _isIntro = true : _isIntro = false;
-  late String _userName = _data.read('userName');
-  late double _currentBalance = double.parse(_data.read('currentBalance'));
-  late List<User> _listOfUserFromDb = Boxes.getTransactions().values.toList().cast<User>();
-  late List<User> _incomeOnly = _listOfUserFromDb.where((element) => element.transactionList[0].isExpense != true).toList();
+  late User _currentUser;
+  late Box<User> _userBox;
+  late List<Transaction> _transactions;
+  late Box<Transaction> _transactionBox;
 
-  //getters
-  bool get isIntro => _isIntro;
-  String get userName => _userName;
-  double get currentBalance => _currentBalance;
-  List<User> get listOfUserFromDb => _listOfUserFromDb;
-  List<User> get incomeOnly => _incomeOnly;
+  List<Transaction> get transactions => _transactions;
+  User get currentUser => _currentUser;
 
-  //setters
-  void setIsIntro(bool newValue) {
-    _isIntro = newValue;
+  DataController() {
+    _userBox = Hive.box<User>(userBoxName);
+    _transactionBox = Hive.box<Transaction>(transactionBoxName);
+    //TODO: currentUser issue
+    List<User> _userList = _userBox.values.toList();
+    _currentUser = _userList.isEmpty ? User(name: "", currentBalance: 0, id: "") : _userBox.values.first;
+    //
+    _transactions = [];
+    _transactionBox.values.forEach((element) {
+      _transactions.add(element);
+    });
+    print(_transactions.length);
+  }
+
+  addUser(User user) {
+    _currentUser = user;
+    _userBox.add(user);
     update();
   }
 
-  @override
-  void onInit() {
-    super.onInit();
-  }
-
-  void createNewUser({required String userName, currentBalance}) {
-    _data.write('userName', userName.trim());
-    _data.write('currentBalance', currentBalance.trim());
-    final newUser = User()
-      ..userName = userName.trim()
-      ..currentBalance = double.parse(currentBalance.trim())
-      ..transactionList = [];
-    final box = Boxes.getTransactions();
-    box.add(newUser);
-    setIsIntro(false);
-    update();
-  }
-
-  void createNewTransaction({required String name, amount, type, required bool isExpense}) {
-    final _newTransaction = new Transaction(
-      name: name.trim(),
-      amount: double.parse(amount),
-      type: type,
-      createdDate: DateTime.now(),
-      isExpense: isExpense,
+  addTransaction(Transaction transaction, BuildContext context) {
+    _transactions.add(transaction);
+    _transactionBox.add(transaction);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Transaction Added',
+          style: TextStyle(color: Colors.black),
+        ),
+        backgroundColor: Color(0xfff2f2f2),
+      ),
     );
-    final user = User()
-      ..userName = _userName
-      ..currentBalance = _currentBalance
-      ..transactionList = [_newTransaction];
-
-    final box = Boxes.getTransactions();
-    box.add(user);
-    _listOfUserFromDb = Boxes.getTransactions().values.toList().cast<User>();
     update();
   }
 
-  @override
-  void onClose() {
-    Hive.box('user').close();
-    super.onClose();
+  removeTransaction(Transaction transaction) {
+    _transactionBox.deleteAt(transactions.indexOf(transaction));
+    _transactions.removeWhere((element) => element.id == transaction.id);
+    update();
   }
 }

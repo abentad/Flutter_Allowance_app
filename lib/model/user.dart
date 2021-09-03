@@ -1,4 +1,3 @@
-import 'package:allowance/model/transaction.dart';
 import 'package:hive/hive.dart';
 
 part 'user.g.dart';
@@ -6,11 +5,10 @@ part 'user.g.dart';
 @HiveType(typeId: 0)
 class User extends HiveObject {
   @HiveField(0)
-  late String userName;
-
+  late String id;
   @HiveField(1)
-  late double currentBalance;
-
+  late String name;
   @HiveField(2)
-  late List<Transaction> transactionList = [];
+  late double currentBalance;
+  User({required this.name, required this.currentBalance, required this.id});
 }

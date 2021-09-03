@@ -1,4 +1,8 @@
+import 'dart:math';
+
 import 'package:allowance/controller/data_controller.dart';
+import 'package:allowance/model/transaction.dart';
+import 'package:allowance/model/user.dart';
 import 'package:allowance/view/chart_screen.dart';
 import 'package:allowance/view/edit_screen.dart';
 import 'package:allowance/view/setting_screen.dart';
@@ -19,23 +23,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int _groupValue = 0;
   int _bottomNavValue = 0;
-  bool isExpense = true;
+  bool _isIncome = true;
 
   TextEditingController _transactionNameController = TextEditingController();
   TextEditingController _transactionAmountController = TextEditingController();
   TextEditingController _transactionTypeController = TextEditingController();
   TextEditingController _usernameController = TextEditingController();
   TextEditingController _currentBalanceController = TextEditingController();
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,8 +51,8 @@ class _HomeScreenState extends State<HomeScreen> {
       body: contents[_bottomNavValue],
       // bottomNavigationBar: isIntro ? null : buildBottomNavBar(),
       // floatingActionButton: isIntro
-      bottomNavigationBar: _dataController.isIntro ? null : buildBottomNavBar(),
-      floatingActionButton: _dataController.isIntro
+      bottomNavigationBar: _dataController.currentUser.name == "" ? null : buildBottomNavBar(),
+      floatingActionButton: _dataController.currentUser.name == ""
           ? null
           : FloatingActionButton(
               onPressed: () {
@@ -96,12 +90,12 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(height: size.height * 0.04),
           StatefulBuilder(
             builder: (context, _setState) => CheckboxListTile(
-              title: Text("Is Expense"),
-              value: isExpense,
+              title: Text("Is Income"),
+              value: _isIncome,
               activeColor: Colors.black,
               onChanged: (value) {
                 _setState(() {
-                  isExpense = value!;
+                  _isIncome = value!;
                 });
               },
             ),
@@ -109,18 +103,21 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(height: size.height * 0.04),
           MaterialButton(
             onPressed: () {
-              _dataController.createNewTransaction(
+              Transaction _newTransaction = Transaction(
+                amount: double.parse(_transactionAmountController.text),
+                dateAdded: DateTime.now(),
+                id: (Random().nextDouble() + DateTime.now().millisecondsSinceEpoch).toString(),
+                isIncome: _isIncome,
                 name: _transactionNameController.text,
-                amount: _transactionAmountController.text,
                 type: _transactionTypeController.text,
-                isExpense: isExpense,
               );
+              _dataController.addTransaction(_newTransaction, context);
               //reseters
               _transactionNameController.clear();
               _transactionAmountController.clear();
               _transactionTypeController.clear();
               setState(() {
-                isExpense = true;
+                _isIncome = true;
               });
               FocusScope.of(context).unfocus();
               Navigator.of(context).pop();
@@ -198,10 +195,12 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(height: size.height * 0.06),
             MaterialButton(
               onPressed: () {
-                _dataController.createNewUser(
-                  userName: _usernameController.text,
-                  currentBalance: _currentBalanceController.text,
+                User _newUser = User(
+                  id: (Random().nextDouble() + DateTime.now().millisecondsSinceEpoch).toString(),
+                  name: _usernameController.text,
+                  currentBalance: double.parse(_currentBalanceController.text),
                 );
+                _dataController.addUser(_newUser);
               },
               minWidth: double.infinity,
               height: 50.0,
@@ -215,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget buildCard({required Size size, required String name, amount, type, createdDate, required bool isExpense}) {
+  Widget buildCard({required Size size, required String name, amount, type, createdDate, required bool isIncome, required int index}) {
     TextStyle _style = TextStyle(color: Colors.white, fontSize: 18.0);
     return Padding(
       padding: const EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0),
@@ -229,7 +228,12 @@ class _HomeScreenState extends State<HomeScreen> {
               actions: [
                 TextButton(onPressed: () => Navigator.of(context).pop(), child: Text("cancel")),
                 //TODO: implement remove button of transaction
-                TextButton(onPressed: () {}, child: Text("confirm")),
+                TextButton(
+                    onPressed: () {
+                      _dataController.removeTransaction(_dataController.transactions[index - 1]);
+                      Navigator.of(context).pop();
+                    },
+                    child: Text("confirm")),
               ],
             ),
           );
@@ -238,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
           height: size.height * 0.15,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: isExpense ? Color(0xff810000) : Color(0xff57837B),
+            color: isIncome ? Color(0xff57837B) : Color(0xff810000),
             borderRadius: BorderRadius.circular(10.0),
             boxShadow: [BoxShadow(color: Colors.black54, offset: Offset(2, 9), blurRadius: 10.0)],
           ),
@@ -247,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 flex: 1,
                 child: Container(
-                  child: isExpense ? Icon(Icons.money, size: 42.0, color: Colors.white) : Icon(Icons.link, size: 42.0, color: Colors.white),
+                  child: isIncome ? Icon(Icons.link, size: 42.0, color: Colors.white) : Icon(Icons.money, size: 42.0, color: Colors.white),
                 ),
               ),
               Expanded(
@@ -273,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text("Is Expense", style: _style.copyWith(fontSize: 14.0)),
-                            isExpense == true ? Icon(Icons.check_box, size: 18.0) : Icon(Icons.check_box_outline_blank, size: 18.0),
+                            isIncome == true ? Icon(Icons.check_box_outline_blank, size: 18.0) : Icon(Icons.check_box, size: 18.0),
                           ],
                         ),
                       ),
@@ -310,15 +314,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget buildAll(Size size) {
     return GetBuilder<DataController>(
-      builder: (controller) => controller.listOfUserFromDb.length == 0
+      builder: (controller) => controller.currentUser.name == ""
           ? buildIntro(size)
           : SafeArea(
               child: ListView.builder(
                 physics: BouncingScrollPhysics(),
-                itemCount: controller.listOfUserFromDb.length - 1,
+                itemCount: controller.transactions.length + 1,
                 itemBuilder: (context, index) {
-                  final values = controller.listOfUserFromDb;
-                  print((values.length - 1).toString() + " items found in the db");
+                  print((controller.transactions.length).toString() + " items found in the db");
                   if (index == 0) {
                     return Column(
                       children: [
@@ -329,16 +332,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     );
                   }
-                  if (values.length == 1) {
+                  if (controller.transactions.length == 0) {
                     return Icon(Icons.no_accounts, size: 28.0);
                   } else {
-                    return buildCard(
-                      size: size,
-                      name: values[index + 1].transactionList[0].name,
-                      amount: values[index + 1].transactionList[0].amount.toString(),
-                      type: values[index + 1].transactionList[0].type,
-                      isExpense: values[index + 1].transactionList[0].isExpense,
-                      createdDate: values[index + 1].transactionList[0].createdDate.toString(),
+                    return Padding(
+                      padding: index == controller.transactions.length ? const EdgeInsets.only(bottom: 60.0) : const EdgeInsets.all(0),
+                      child: buildCard(
+                        index: index,
+                        size: size,
+                        name: controller.transactions[index - 1].name,
+                        amount: controller.transactions[index - 1].amount.toString(),
+                        type: controller.transactions[index - 1].type,
+                        isIncome: controller.transactions[index - 1].isIncome,
+                        createdDate: controller.transactions[index - 1].dateAdded.toString(),
+                      ),
                     );
                   }
                 },
@@ -350,35 +357,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget buildIncome(Size size) {
     return GetBuilder<DataController>(
       builder: (controller) => SafeArea(
-        child: ListView.builder(
-          physics: BouncingScrollPhysics(),
-          itemCount: controller.incomeOnly.length - 1,
-          itemBuilder: (context, index) {
-            final values = controller.incomeOnly;
-            print((values.length - 1).toString() + " Income items found in the db");
-            if (index == 0) {
-              return Column(
-                children: [
-                  SizedBox(height: size.height * 0.02),
-                  buildSegmentedSlider(),
-                  buildCurrentBalance(size),
-                  SizedBox(height: size.height * 0.04),
-                ],
-              );
-            }
-            if (values.length == 1) {
-              return Icon(Icons.no_accounts, size: 28.0);
-            } else {
-              return buildCard(
-                size: size,
-                name: values[index + 1].transactionList[0].name,
-                amount: values[index + 1].transactionList[0].amount.toString(),
-                type: values[index + 1].transactionList[0].type,
-                isExpense: values[index + 1].transactionList[0].isExpense,
-                createdDate: values[index + 1].transactionList[0].createdDate.toString(),
-              );
-            }
-          },
+        child: SingleChildScrollView(
+          child: Container(
+            width: double.infinity,
+            child: Column(
+              children: [
+                SizedBox(height: size.height * 0.02),
+                buildSegmentedSlider(),
+                buildCurrentBalance(size),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -408,7 +397,7 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(height: size.height * 0.04),
           GetBuilder<DataController>(
             builder: (controller) => Text(
-              'Hi ${controller.userName} ',
+              'Hi ${controller.currentUser.name} ',
               style: TextStyle(fontSize: 22.0),
             ),
           ),
@@ -426,7 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // SizedBox(height: size.height * 0.02),
           GetBuilder<DataController>(
             builder: (controller) => Text(
-              '${controller.currentBalance} ' + "Birr",
+              '${controller.currentUser.currentBalance} ' + "Birr",
               style: TextStyle(fontSize: 32.0),
             ),
           ),

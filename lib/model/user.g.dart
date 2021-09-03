@@ -16,10 +16,11 @@ class UserAdapter extends TypeAdapter<User> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return User()
-      ..userName = fields[0] as String
-      ..currentBalance = fields[1] as double
-      ..transactionList = (fields[2] as List).cast<Transaction>();
+    return User(
+      name: fields[1] as String,
+      currentBalance: fields[2] as double,
+      id: fields[0] as String,
+    );
   }
 
   @override
@@ -27,11 +28,11 @@ class UserAdapter extends TypeAdapter<User> {
     writer
       ..writeByte(3)
       ..writeByte(0)
-      ..write(obj.userName)
+      ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.currentBalance)
+      ..write(obj.name)
       ..writeByte(2)
-      ..write(obj.transactionList);
+      ..write(obj.currentBalance);
   }
 
   @override
